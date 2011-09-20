@@ -1,0 +1,32 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual Studio 2010
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CompiledValidators", "CompiledValidators\CompiledValidators.csproj", "{66FA6E3F-4A20-41E8-ABD9-1EA7CB9D177A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CompiledValidators.DataAnnotations", "CompiledValidators.DataAnnotations\CompiledValidators.DataAnnotations.csproj", "{B6CA052E-B346-4AD1-801B-4E4F017834B5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CompiledValidators.Tests", "CompiledValidators.Tests\CompiledValidators.Tests.csproj", "{63826DE4-8056-4A10-9B56-F86869BD5B18}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{66FA6E3F-4A20-41E8-ABD9-1EA7CB9D177A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{66FA6E3F-4A20-41E8-ABD9-1EA7CB9D177A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{66FA6E3F-4A20-41E8-ABD9-1EA7CB9D177A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{66FA6E3F-4A20-41E8-ABD9-1EA7CB9D177A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B6CA052E-B346-4AD1-801B-4E4F017834B5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B6CA052E-B346-4AD1-801B-4E4F017834B5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B6CA052E-B346-4AD1-801B-4E4F017834B5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B6CA052E-B346-4AD1-801B-4E4F017834B5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{63826DE4-8056-4A10-9B56-F86869BD5B18}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{63826DE4-8056-4A10-9B56-F86869BD5B18}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{63826DE4-8056-4A10-9B56-F86869BD5B18}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{63826DE4-8056-4A10-9B56-F86869BD5B18}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
