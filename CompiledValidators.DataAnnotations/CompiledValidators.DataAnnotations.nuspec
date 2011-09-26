@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<package>
+  <metadata>
+    <id>CompiledValidators.DataAnnotations</id>
+    <version>1.0</version>
+    <authors>Daniel Moore</authors>
+    <owners>Daniel Moore</owners>
+    <licenseUrl>https://raw.github.com/danielmoore/CompiledValidators/master/LICENSE.md</licenseUrl>
+    <projectUrl>https://github.com/danielmoore/CompiledValidators</projectUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>DataAnnotations plugin for CompiledValidators.</description>
+    <copyright>Copyright 2011 Daniel Moore</copyright>
+    <tags>Validation Validator DataAnnotations</tags>
+    <frameworkAssemblies>
+      <frameworkAssembly assemblyName="System.Core" targetFramework="net40"/>
+      <frameworkAssembly assemblyName="System.ComponentModel.DataAnnotations" targetFramework="net40"/>
+    </frameworkAssemblies>
+    <dependencies>
+      <dependency id="CompiledValidators" version="1.0" />
+    </dependencies>
+  </metadata>
+</package>

@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<package>
+  <metadata>
+    <id>CompiledValidators</id>
+    <version>1.0</version>
+    <authors>Daniel Moore</authors>
+    <owners>Daniel Moore</owners>
+    <licenseUrl>https://raw.github.com/danielmoore/CompiledValidators/master/LICENSE.md</licenseUrl>
+    <projectUrl>https://github.com/danielmoore/CompiledValidators</projectUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>Compiled LINQ Expressions that validate objects.</description>
+    <copyright>Copyright 2011 Daniel Moore</copyright>
+    <tags>Validation Validator</tags>
+    <frameworkAssemblies>
+      <assemblyName="System.Core" targetFramework="net40"/>
+    </frameworkAssemblies>
+  </metadata>
+</package>
