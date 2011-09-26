@@ -16,7 +16,7 @@ namespace CompiledValidators
         /// <remarks>
         /// The list of possible types passed to <paramref name="member"/> are:
         /// <list type="disc">
-        /// <item><see cref="Type"/></item>
+        /// <item><see cref="System.Type"/></item>
         /// <itm><see cref="FieldInfo"/></itm>
         /// <item><see cref="PropertyInfo"/></item>
         /// </list>

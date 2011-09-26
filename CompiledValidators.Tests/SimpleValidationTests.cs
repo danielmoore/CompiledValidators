@@ -26,7 +26,7 @@ namespace CompiledValidators.Tests
         [Test]
         public void NullReturnsRootInvalidError()
         {
-            Assert.AreEqual(Validator.RootValidationError, _sut.ValidateToFirstError<object>(null).Single());
+            Assert.AreEqual(Validator.RootNullValidationError, _sut.ValidateToFirstError<object>(null).Single());
         }
 
         [Test]

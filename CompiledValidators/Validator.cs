@@ -19,7 +19,8 @@ namespace CompiledValidators
         /// <summary>
         /// Initializes a new instance of the <see cref="Validator"/> class.
         /// </summary>
-        /// <param name="isThreadSafe">if set to <c>true</c> [is thread safe].</param>
+        /// <param name="isThreadSafe">Set to <c>true</c> to indicate that the validator will be called from a thread-safe context.</param>
+        /// <param name="recursionPolicy">The recursion policy.</param>
         /// <param name="validatorProvider">The validator provider.</param>
         /// <param name="converters">The converters.</param>
         public Validator(bool isThreadSafe, IRecursionPolicy recursionPolicy, IValidatorProvider validatorProvider, params IValidationExpressionConverter[] converters)
@@ -28,7 +29,8 @@ namespace CompiledValidators
         /// <summary>
         /// Initializes a new instance of the <see cref="Validator"/> class.
         /// </summary>
-        /// <param name="isThreadSafe">if set to <c>true</c> [is thread safe].</param>
+        /// <param name="isThreadSafe">Set to <c>true</c> to indicate that the validator will be called from a thread-safe context.</param>
+        /// <param name="recursionPolicy">The recursion policy.</param>
         /// <param name="validatorProvider">The validator provider.</param>
         /// <param name="converters">The converters.</param>
         public Validator(bool isThreadSafe, IRecursionPolicy recursionPolicy, IValidatorProvider validatorProvider, IEnumerable<IValidationExpressionConverter> converters)
@@ -99,7 +101,7 @@ namespace CompiledValidators
             var collectAllErrosValidator = validators.CollectAllErrosValidator.Value;
             collectAllErrosValidator.Validate(obj, results);
 
-            return results.SelectMany(r => 
+            return results.SelectMany(r =>
                 collectAllErrosValidator
                 .MemberGraph
                 .GetErrorMessages(r.Id, r.Object)
@@ -120,10 +122,16 @@ namespace CompiledValidators
             return (Validators<T>)validators;
         }
 
-        public static readonly ValidationError RootValidationError = new ValidationError(Core.MemberGraph.RootMemberName, "Root object cannot be null.", null);
-        
-        private static readonly IEnumerable<ValidationError> RootValidationErrors = new[] { RootValidationError };
+        /// <summary>
+        /// Gets the validation error returned if the given object is null.
+        /// </summary>
+        public static readonly ValidationError RootNullValidationError = new ValidationError(Core.MemberGraph.RootMemberName, "Root object cannot be null.", null);
 
+        private static readonly IEnumerable<ValidationError> RootValidationErrors = new[] { RootNullValidationError };
+
+        /// <summary>
+        /// Gets or sets the default validator.
+        /// </summary>
         public static Validator Default { get; set; }
 
         private class Validators<T>

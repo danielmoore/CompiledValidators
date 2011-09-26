@@ -66,6 +66,8 @@ namespace CompiledValidators.Tests.DataAnnotations
             public string Bar { get; set; }
         }
 
+#pragma warning disable 0649 // metadata can be null
+
         private class TestObjectMetadata
         {
             [Range(4, 6)]
@@ -74,6 +76,8 @@ namespace CompiledValidators.Tests.DataAnnotations
             [Required]
             public string Bar;
         }
+
+#pragma warning restore 0649
 
 
         private class ValidatableObject : IValidatableObject
