@@ -10,7 +10,7 @@ namespace CompiledValidators.DataAnnotations
         private static readonly MethodInfo ValidationAttribute_IsValid = typeof(ValidationAttribute).GetMethod("IsValid", new[] { typeof(object) });
         public Expression Convert(object validator, Expression member)
         {
-            return Expression.Call(Expression.Constant(validator, typeof(ValidationAttribute)), ValidationAttribute_IsValid, member);
+            return Expression.Call(Expression.Constant(validator, typeof(ValidationAttribute)), ValidationAttribute_IsValid, Expression.Convert(member, typeof(object)));
         }
 
         public bool CanConvert(object validator, Type memberType)

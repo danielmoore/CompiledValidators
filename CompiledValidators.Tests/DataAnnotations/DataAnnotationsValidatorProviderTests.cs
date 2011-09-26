@@ -26,29 +26,30 @@ namespace CompiledValidators.Tests.DataAnnotations
         public void IdentifiesTargetAttributes()
         {
             var memberInfo = GetMemberInfo((TestObject o) => o.Foo);
-            Assert.IsTrue(_sut.GetValidators(memberInfo).Contains(memberInfo.GetCustomAttributes(false).Single()));
+            var attr = memberInfo.GetCustomAttributes(false).Single();
+            Assert.IsTrue(_sut.GetValidators(memberInfo).Select(v => v.Validator).Contains(attr));
         }
 
         [Test]
         public void MergesMetadataAttributes()
         {
             var memberInfo = GetMemberInfo((TestObject o) => o.Foo);
-            var metadataMemberInfo = GetMemberInfo((TestObjectMetadata o) => o.Foo);
-            Assert.IsTrue(_sut.GetValidators(memberInfo).Contains(metadataMemberInfo.GetCustomAttributes(false).Single()));
+            var metadataMemberAttr = GetMemberInfo((TestObjectMetadata o) => o.Foo).GetCustomAttributes(false).Single();
+            Assert.IsTrue(_sut.GetValidators(memberInfo).Select(v => v.Validator).Contains(metadataMemberAttr));
         }
 
         [Test]
         public void IdentifiesMetadataAttributes()
         {
             var memberInfo = GetMemberInfo((TestObject o) => o.Bar);
-            var metadataMemberInfo = GetMemberInfo((TestObjectMetadata o) => o.Bar);
-            Assert.IsTrue(_sut.GetValidators(memberInfo).Contains(metadataMemberInfo.GetCustomAttributes(false).Single()));
+            var metadataMemberAttr = GetMemberInfo((TestObjectMetadata o) => o.Bar).GetCustomAttributes(false).Single();
+            Assert.IsTrue(_sut.GetValidators(memberInfo).Select(v => v.Validator).Contains(metadataMemberAttr));
         }
 
         [Test]
         public void IdentifiesValidatableObjects()
         {
-            Assert.IsTrue(_sut.GetValidators(typeof(ValidatableObject)).Contains(null));
+            Assert.IsTrue(_sut.GetValidators(typeof(ValidatableObject)).Select(v => v.Validator).Contains(null));
         }
 
         private static MemberInfo GetMemberInfo<TSource, TMember>(Expression<Func<TSource, TMember>> selector)

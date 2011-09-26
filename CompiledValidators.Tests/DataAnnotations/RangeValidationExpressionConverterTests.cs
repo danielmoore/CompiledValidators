@@ -71,5 +71,11 @@ namespace CompiledValidators.Tests.DataAnnotations
         {
             Assert.IsTrue(_sut.Execute(StringIntValidator, 7));
         }
+
+        [Test]
+        public void NonOperandTypesAreValid()
+        {
+            Assert.IsTrue(_sut.Execute(IntValidator, 2d));
+        }
     }
 }

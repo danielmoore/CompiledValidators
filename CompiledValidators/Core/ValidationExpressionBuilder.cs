@@ -9,18 +9,19 @@ namespace CompiledValidators.Core
 {
     internal class ValidationExpressionBuilder
     {
-        private static readonly Assembly Mscorlib = typeof(object).Assembly;
         private static readonly MethodInfo Collection_Add = typeof(ICollection<ValidationError>).GetMethod("Add", new[] { typeof(ValidationError) });
         private static readonly ConstructorInfo ValidationError_Ctor = typeof(ValidationError).GetConstructor(new[] { typeof(int), typeof(object) });
 
+        private readonly IRecursionPolicy _recursionPolicy;
         private readonly IValidatorProvider _validatorProvider;
         private readonly IEnumerable<IValidationExpressionConverter> _converters;
 
         private readonly ConcurrentDictionary<Type, TypeData> _typeData;
         private readonly ConcurrentDictionary<Type, EnumerationData> _enumerationData;
 
-        public ValidationExpressionBuilder(IValidatorProvider validatorProvider, IEnumerable<IValidationExpressionConverter> converters)
+        public ValidationExpressionBuilder(IRecursionPolicy recursionPolicy, IValidatorProvider validatorProvider, IEnumerable<IValidationExpressionConverter> converters)
         {
+            _recursionPolicy = recursionPolicy;
             _validatorProvider = validatorProvider;
             _converters = converters.ToArray();
 
@@ -30,39 +31,35 @@ namespace CompiledValidators.Core
 
         public ValidationImplementationContext<Func<T, ValidationError?>> Build<T>()
         {
-            var queue = new ValidationQueue();
             var root = Expression.Parameter(typeof(T));
             var returnLabel = Expression.Label(typeof(ValidationError?));
 
-            var memberGraph = new MemberGraph();
+            var context = new ValidationContext((member, id) => Expression.Return(returnLabel, Expression.Convert(CreateValidationError(id, member), typeof(ValidationError?))));
 
-            queue.Enqueue(() => GetValidationExpressions(queue, root, memberGraph.RootId, memberGraph,
-                (id, member) => Expression.Return(returnLabel, Expression.Convert(CreateValidationError(id, member), typeof(ValidationError?)))));
+            context.Queue.Enqueue(() => GetValidationExpressions(root, context.MemberGraph.RootId, context));
 
-            var validators = DrainQueue(queue).ToArray();
+            var validators = DrainQueue(context.Queue).ToArray();
 
             var returnSite = Expression.Label(returnLabel, Expression.Constant(null, typeof(ValidationError?)));
             var body = validators.Any() ? (Expression)Expression.Block(Expression.Block(validators), returnSite) : Expression.Constant(null, typeof(ValidationError?));
 
-            return CreateValidationContext(Expression.Lambda<Func<T, ValidationError?>>(body, root), memberGraph);
+            return CreateValidationContext(Expression.Lambda<Func<T, ValidationError?>>(body, root), context.MemberGraph);
         }
 
         public ValidationImplementationContext<Action<T, ICollection<ValidationError>>> BuildFull<T>()
         {
-            var queue = new ValidationQueue();
             var root = Expression.Parameter(typeof(T));
             var validationErrors = Expression.Parameter(typeof(ICollection<ValidationError>));
 
-            var memberGraph = new MemberGraph();
+            var context = new ValidationContext((member, id) => Expression.Call(validationErrors, Collection_Add, CreateValidationError(id, member)));
 
-            queue.Enqueue(() => GetValidationExpressions(queue, root, memberGraph.RootId, memberGraph,
-                (id, member) => Expression.Call(validationErrors, Collection_Add, CreateValidationError(id, member))));
+            context.Queue.Enqueue(() => GetValidationExpressions(root, context.MemberGraph.RootId, context));
 
-            var validators = DrainQueue(queue).ToArray();
+            var validators = DrainQueue(context.Queue).ToArray();
 
             var body = validators.Any() ? (Expression)Expression.Block(validators) : Expression.Empty();
 
-            return CreateValidationContext(Expression.Lambda<Action<T, ICollection<ValidationError>>>(body, root, validationErrors), memberGraph);
+            return CreateValidationContext(Expression.Lambda<Action<T, ICollection<ValidationError>>>(body, root, validationErrors), context.MemberGraph);
         }
 
         private static Expression CreateValidationError(int id, Expression member)
@@ -83,40 +80,40 @@ namespace CompiledValidators.Core
                     yield return expr;
         }
 
-        private IEnumerable<Expression> GetValidationExpressions(ValidationQueue validationQueue, Expression root, int rootId, MemberGraph memberGraph, Func<int, Expression, Expression> onIsInvalid)
+        private IEnumerable<Expression> GetValidationExpressions(Expression root, int rootId, ValidationContext context)
         {
             var typeData = _typeData.GetOrAdd(root.Type, GetTypeData);
 
-            if (typeData.Converters.Any())
-                yield return Validate(root, root, rootId, typeData.Converters, onIsInvalid);
+            foreach (var converter in typeData.Converters)
+                yield return Validate(root, root, rootId, converter, context);
 
             foreach (var memberData in typeData.Members)
             {
                 var member = Expression.MakeMemberAccess(root, memberData.MemberInfo);
-                var id = memberGraph.NewId(rootId, memberData.MemberInfo);
+                var id = context.MemberGraph.NewMemberId(rootId, memberData.MemberInfo.Name);
 
-                if (memberData.Converters.Any())
-                    yield return Validate(root, member, id, memberData.Converters, onIsInvalid);
+                foreach (var converter in memberData.Converters)
+                    yield return Validate(root, member, id, converter, context);
 
-                if (member.Type.Assembly != Mscorlib)
+                if (!memberData.RecursionPolicy.HasFlag(PolicyOptions.NoFollow))
                     if (IsNullable(member.Type))
-                        validationQueue.Enqueue(() => NullCheck(member, GetValidationExpressions(validationQueue, member, id, memberGraph, onIsInvalid)));
+                        context.Queue.Enqueue(() => NullCheck(member, GetValidationExpressions(member, id, context)));
                     else
-                        validationQueue.Enqueue(() => GetValidationExpressions(validationQueue, member, id, memberGraph, onIsInvalid));
+                        context.Queue.Enqueue(() => GetValidationExpressions(member, id, context));
 
-                if (memberData.EnumerableTypeParameter != null)
+                if (!memberData.RecursionPolicy.HasFlag(PolicyOptions.NoIterate) && memberData.EnumerableTypeParameter != null)
                 {
                     var enumerableTypeParameter = memberData.EnumerableTypeParameter;
-                    var collectionId = memberGraph.NewId(rootId, memberData.MemberInfo, MemberType.Collection);
-                    validationQueue.Enqueue(() => ForEach(member, enumerableTypeParameter, e => NullCheck(e, GetValidationExpressions(validationQueue, e, collectionId, memberGraph, onIsInvalid))));
+                    var collectionId = context.MemberGraph.NewMemberId(rootId, memberData.MemberInfo.Name, MemberType.Collection);
+                    context.Queue.Enqueue(() => ForEach(member, enumerableTypeParameter, e => NullCheck(e, GetValidationExpressions(e, collectionId, context))));
                 }
             }
         }
 
-        private static Expression Validate(Expression root, Expression member, int id, IEnumerable<ReadyConverter> converters, Func<int, Expression, Expression> onIsInvalid)
+        private static Expression Validate(Expression root, Expression member, int memberId, ReadyConverter converter, ValidationContext context)
         {
-            var isValidExpression = converters.Select(c => c.Convert(member)).Aggregate(Expression.AndAlso);
-            return Expression.IfThen(Expression.Not(isValidExpression), onIsInvalid(id, root));
+            var validatorId = context.MemberGraph.NewValidatorId(memberId, converter.ValidatorInfo);
+            return Expression.IfThen(Expression.Not(converter.Convert(member)), context.GetInvalidValueHandlerExpression(root, validatorId));
         }
 
         private static IEnumerable<Expression> NullCheck(Expression value, IEnumerable<Expression> body)
@@ -154,20 +151,23 @@ namespace CompiledValidators.Core
 
         private TypeData GetTypeData(Type type)
         {
-            var fields = type.GetFields().Select(f => new MemberData(f, GetConverters(f, f.FieldType)));
-            var properties = type.GetProperties().Select(p => new MemberData(p, GetConverters(p, p.PropertyType)));
+            const BindingFlags MemberFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.GetField | BindingFlags.GetProperty;
 
-            return new TypeData(type, GetConverters(type, type).ToArray(), fields.Concat(properties).ToArray());
+            var fields = type.GetFields(MemberFlags).Select(f => new MemberData(f, _recursionPolicy, GetConverters(f, f.FieldType)));
+            var properties = type.GetProperties(MemberFlags).Select(p => new MemberData(p, _recursionPolicy, GetConverters(p, p.PropertyType)));
+
+            return new TypeData(type, GetConverters(type, type), fields.Concat(properties).ToArray());
         }
 
         private IEnumerable<ReadyConverter> GetConverters(MemberInfo member, Type memberType)
         {
             return _validatorProvider
                 .GetValidators(member)
-                .SelectMany(a => _converters
-                    .Where(c => c.CanConvert(a, memberType))
-                    .Select(c => new ReadyConverter(a, c))
-                    .Take(1));
+                .SelectMany(v => _converters
+                    .Where(c => c.CanConvert(v.Validator, memberType))
+                    .Select(c => new ReadyConverter(v, c))
+                    .Take(1))
+                .ToArray();
         }
 
         private class TypeData
@@ -184,20 +184,42 @@ namespace CompiledValidators.Core
             public IEnumerable<MemberData> Members { get; private set; }
         }
 
-        private class MemberData
+        private class ValidationContext
         {
-            public MemberData(FieldInfo fieldInfo, IEnumerable<ReadyConverter> converters)
+            private readonly Func<Expression, int, Expression> _onIsInvalid;
+
+            public ValidationContext(Func<Expression, int, Expression> onIsInvalid)
             {
-                MemberInfo = fieldInfo;
-                Converters = converters;
-                EnumerableTypeParameter = GetEnumerableTypeParameter(fieldInfo.FieldType);
+                _onIsInvalid = onIsInvalid;
+
+                Queue = new ValidationQueue();
+                MemberGraph = new MemberGraph();
             }
 
-            public MemberData(PropertyInfo propertyInfo, IEnumerable<ReadyConverter> converters)
+            public ValidationQueue Queue { get; private set; }
+
+            public MemberGraph MemberGraph { get; private set; }
+
+            public Expression GetInvalidValueHandlerExpression(Expression member, int validatorId)
             {
-                MemberInfo = propertyInfo;
+                return _onIsInvalid(member, validatorId);
+            }
+        }
+
+        private class MemberData
+        {
+            public MemberData(FieldInfo fieldInfo, IRecursionPolicy recursionPolicy, IEnumerable<ReadyConverter> converters)
+                : this(fieldInfo, fieldInfo.FieldType, recursionPolicy, converters) { }
+
+            public MemberData(PropertyInfo propertyInfo, IRecursionPolicy recursionPolicy, IEnumerable<ReadyConverter> converters)
+                : this(propertyInfo, propertyInfo.PropertyType, recursionPolicy, converters) { }
+
+            private MemberData(MemberInfo memberInfo, Type memberType, IRecursionPolicy recursionPolicy, IEnumerable<ReadyConverter> converters)
+            {
+                MemberInfo = memberInfo;
+                RecursionPolicy = recursionPolicy.GetPolicy(memberInfo);
                 Converters = converters;
-                EnumerableTypeParameter = GetEnumerableTypeParameter(propertyInfo.PropertyType);
+                EnumerableTypeParameter = GetEnumerableTypeParameter(memberType);
             }
 
             private static Type GetEnumerableTypeParameter(Type type)
@@ -210,6 +232,7 @@ namespace CompiledValidators.Core
             }
 
             public MemberInfo MemberInfo { get; private set; }
+            public PolicyOptions RecursionPolicy { get; private set; }
             public IEnumerable<ReadyConverter> Converters { get; private set; }
             public Type EnumerableTypeParameter { get; private set; }
         }
@@ -255,18 +278,20 @@ namespace CompiledValidators.Core
 
         private class ReadyConverter
         {
-            private readonly object _validator;
+            private readonly ValidatorInfo _valdiatorInfo;
             private readonly IValidationExpressionConverter _converter;
 
-            public ReadyConverter(object validator, IValidationExpressionConverter converter)
+            public ReadyConverter(ValidatorInfo validatorInfo, IValidationExpressionConverter converter)
             {
-                _validator = validator;
+                _valdiatorInfo = validatorInfo;
                 _converter = converter;
             }
 
+            public ValidatorInfo ValidatorInfo { get { return _valdiatorInfo; } }
+
             public Expression Convert(Expression member)
             {
-                return _converter.Convert(_validator, member);
+                return _converter.Convert(_valdiatorInfo.Validator, member);
             }
         }
     }

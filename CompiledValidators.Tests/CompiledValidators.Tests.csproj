@@ -41,11 +41,14 @@
     <Reference Include="System.ComponentModel.DataAnnotations" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="CoreTests.cs" />
+    <Compile Include="DataAnnotations\ErrorMessageTests.cs" />
+    <Compile Include="ErrorMessageTests.cs" />
+    <Compile Include="SimpleValidationTests.cs" />
     <Compile Include="DataAnnotations\DataAnnotationsValidatorProviderTests.cs" />
     <Compile Include="DataAnnotations\DefaultValidationExpressionConverterTests.cs" />
     <Compile Include="DataAnnotations\RangeValidationExpressionConverterTests.cs" />
     <Compile Include="DataAnnotations\ValidatableObjectValidationExpressionConverterTests.cs" />
+    <Compile Include="DataErrorInfoValidationExpressionConverterTests.cs" />
     <Compile Include="Extensions.cs" />
     <Compile Include="InferredExtensionsTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

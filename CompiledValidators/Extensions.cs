@@ -20,9 +20,9 @@ namespace CompiledValidators
             return Invoke<IEnumerable<ValidationError>>(source, Validator_Validate, obj.GetType(), obj, isOptimistic);
         }
 
-        public static ValidationError ValidateToFirstErrorInferred<T>(this IValidator source, T obj)
+        public static IEnumerable<ValidationError> ValidateToFirstErrorInferred<T>(this IValidator source, T obj)
         {
-            return Invoke<ValidationError>(source, Validator_ValidateToFirstError, obj.GetType(), obj);
+            return Invoke<IEnumerable<ValidationError>>(source, Validator_ValidateToFirstError, obj.GetType(), obj);
         }
 
         private static T Invoke<T>(object target, MethodInfo method, Type genericParameter, params object[] args)

@@ -12,7 +12,7 @@ namespace CompiledValidators
 
         public Expression Convert(object validator, Expression member)
         {
-            return Expression.Not(Expression.Call(String_IsNullOrEmpty, Expression.MakeMemberAccess(member, DataErrorInfo_Error)));
+            return Expression.Call(String_IsNullOrEmpty, Expression.MakeMemberAccess(member, DataErrorInfo_Error));
         }
 
         public bool CanConvert(object validator, Type memberType)

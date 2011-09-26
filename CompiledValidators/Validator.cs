@@ -6,17 +6,32 @@ using System.Threading;
 
 namespace CompiledValidators
 {
-    public class Validator : CompiledValidators.IValidator
+    /// <summary>
+    /// Provides validation using cached static analysis.
+    /// </summary>
+    public class Validator : IValidator
     {
         private readonly bool _isThreadSafe;
         private readonly Core.ValidationExpressionBuilder _expressionBuilder;
         private readonly Dictionary<Type, object> _nonThreadSafeCache;
         private readonly ConcurrentDictionary<Type, object> _threadSafeCache;
 
-        public Validator(bool isThreadSafe, IValidatorProvider validatorProvider, params IValidationExpressionConverter[] converters)
-            : this(isThreadSafe, validatorProvider, (IEnumerable<IValidationExpressionConverter>)converters) { }
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Validator"/> class.
+        /// </summary>
+        /// <param name="isThreadSafe">if set to <c>true</c> [is thread safe].</param>
+        /// <param name="validatorProvider">The validator provider.</param>
+        /// <param name="converters">The converters.</param>
+        public Validator(bool isThreadSafe, IRecursionPolicy recursionPolicy, IValidatorProvider validatorProvider, params IValidationExpressionConverter[] converters)
+            : this(isThreadSafe, recursionPolicy, validatorProvider, (IEnumerable<IValidationExpressionConverter>)converters) { }
 
-        public Validator(bool isThreadSafe, IValidatorProvider validatorProvider, IEnumerable<IValidationExpressionConverter> converters)
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Validator"/> class.
+        /// </summary>
+        /// <param name="isThreadSafe">if set to <c>true</c> [is thread safe].</param>
+        /// <param name="validatorProvider">The validator provider.</param>
+        /// <param name="converters">The converters.</param>
+        public Validator(bool isThreadSafe, IRecursionPolicy recursionPolicy, IValidatorProvider validatorProvider, IEnumerable<IValidationExpressionConverter> converters)
         {
             _isThreadSafe = isThreadSafe;
 
@@ -25,27 +40,56 @@ namespace CompiledValidators
             else
                 _threadSafeCache = new ConcurrentDictionary<Type, object>();
 
-            _expressionBuilder = new Core.ValidationExpressionBuilder(validatorProvider, converters);
+            _expressionBuilder = new Core.ValidationExpressionBuilder(recursionPolicy, validatorProvider, converters);
         }
 
+        /// <summary>
+        /// Determines whether the specified object is valid.
+        /// </summary>
+        /// <typeparam name="T">The type to use for static analysis.</typeparam>
+        /// <param name="obj">The object to validate.</param>
+        /// <returns>
+        ///   <c>true</c> if the specified object is valid; otherwise, <c>false</c>.
+        /// </returns>
         public bool IsValid<T>(T obj)
         {
             return obj != null && GetValidators<T>().ReturnFirstErrorValidator.Value.Validate(obj) == null;
         }
 
-        public ValidationError ValidateToFirstError<T>(T obj)
+        /// <summary>
+        /// Validates until the first error is found and returns it.
+        /// </summary>
+        /// <typeparam name="T">The type to use for static analysis.</typeparam>
+        /// <param name="obj">The object to validate.</param>
+        /// <returns>
+        /// The first invalid object encountered in the tree.
+        /// </returns>
+        public IEnumerable<ValidationError> ValidateToFirstError<T>(T obj)
         {
-            if (obj == null) return RootValidationError;
+            if (obj == null) return RootValidationErrors;
 
             var validator = GetValidators<T>().ReturnFirstErrorValidator.Value;
             var result = validator.Validate(obj);
 
-            return result == null ? null : new ValidationError(validator.MemberGraph.GetMemberAccessString(result.Value.Id), result.Value.Object);
+            if (result == null) return null;
+
+            return validator.MemberGraph
+                .GetErrorMessages(result.Value.Id, result.Value.Object)
+                .Select(m => new ValidationError(m.MemberName, m.ErrorMessage, result.Value.Object));
         }
 
+        /// <summary>
+        /// Validates the specified object and returns all errors.
+        /// </summary>
+        /// <typeparam name="T">The type to use for static analysis.</typeparam>
+        /// <param name="obj">The object to validate.</param>
+        /// <param name="isOptimistic">Set to <c>true</c> to indicate high liklihood that the object is valid.</param>
+        /// <returns>
+        /// A list of errors or <c>null</c>.
+        /// </returns>
         public IEnumerable<ValidationError> Validate<T>(T obj, bool isOptimistic = true)
         {
-            if (obj == null) return new[] { RootValidationError };
+            if (obj == null) return RootValidationErrors;
 
             var validators = GetValidators<T>();
 
@@ -55,7 +99,11 @@ namespace CompiledValidators
             var collectAllErrosValidator = validators.CollectAllErrosValidator.Value;
             collectAllErrosValidator.Validate(obj, results);
 
-            return results.Select(r => new ValidationError(collectAllErrosValidator.MemberGraph.GetMemberAccessString(r.Id), r.Object));
+            return results.SelectMany(r => 
+                collectAllErrosValidator
+                .MemberGraph
+                .GetErrorMessages(r.Id, r.Object)
+                .Select(m => new ValidationError(m.MemberName, m.ErrorMessage, r.Object)));
         }
 
         private Validators<T> GetValidators<T>()
@@ -72,7 +120,9 @@ namespace CompiledValidators
             return (Validators<T>)validators;
         }
 
-        public static readonly ValidationError RootValidationError = new ValidationError("root", null);
+        public static readonly ValidationError RootValidationError = new ValidationError(Core.MemberGraph.RootMemberName, "Root object cannot be null.", null);
+        
+        private static readonly IEnumerable<ValidationError> RootValidationErrors = new[] { RootValidationError };
 
         public static Validator Default { get; set; }
 

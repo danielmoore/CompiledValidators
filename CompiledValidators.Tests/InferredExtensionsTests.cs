@@ -18,13 +18,13 @@ namespace CompiledValidators.Tests
         [Test]
         public void CanInferValidateToFirstError()
         {
-            Assert.IsNull(Validator.ValidateToFirstErrorInferred(new TestType()));
+            Assert.IsFalse(Validator.ValidateToFirstErrorInferred(new TestType()).Any());
         }
 
         [Test]
         public void CanInferValidate()
         {
-            Assert.IsFalse(Validator.Validate(new TestType()).Any());
+            Assert.IsFalse(Validator.ValidateInferred(new TestType()).Any());
         }
 
         private class TestType { }
