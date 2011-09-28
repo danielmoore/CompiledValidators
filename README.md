@@ -14,6 +14,17 @@ CompiledValidators is also smart enough to dig into your objects and keep valida
 object graph all the way to the leaves. It can also iterate your IEnumerable<T> members
 and validate all of its items.
 
+## Getting Started
+
+You can get the latest stable release from the Downloads section on the project site at GitHub, 
+or you can use Nuget:
+
+    Install-Package CompiledValidators.DataAnnotations
+
+Or, if you want to use the core assembly directly:
+
+    Install-Package CompiledValidators
+
 ## Integration With Your Solution
 
 The core of CompildedValidators does not take a dependency on absolutely anything,
@@ -35,6 +46,7 @@ You can use CompiledValidators without a dependency injection container, as well
     using CompiledValidators.DataAnnotations;
 
     Validator.Default = new Validator(
+        isThreadSafe: true,
         new UserAssemblyRecursionPolicy(),
         new DataAnnotationsValidatorProvider(),
         new RangeValidationExpressionConverter(),
@@ -93,7 +105,6 @@ convert a validator for a member is assigned as that validator's converter. It m
 that would return a boolean expressing validity.
 
 ## To-Do
-* Nuget support
 * Unity configuration example
 * AutoFac configuration example
 * StructureMap configuration example
