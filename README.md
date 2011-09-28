@@ -92,6 +92,7 @@ and identifying all potential validators. CompiledValidators comes with `Attribu
 identifies all attributes as validators.
 
 ValidationProviders also tell CompildValidators what, if any, error message should be returned. 
+
 * If a `ValidatorInfo` is returned, CompiledValidators will choose a default unspecified error message.
 * If an `ErrorMessageValidatorInfo` is returned, its error message is evaluated per validator and cached.
 * If a `MemberErrorValidationInfo` is returned, its error factory is called for every invalid object found
@@ -105,6 +106,7 @@ convert a validator for a member is assigned as that validator's converter. It m
 that would return a boolean expressing validity.
 
 ## To-Do
+
 * Unity configuration example
 * AutoFac configuration example
 * StructureMap configuration example
