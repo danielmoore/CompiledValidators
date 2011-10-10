@@ -9,7 +9,7 @@ using RangeAttribute = System.ComponentModel.DataAnnotations.RangeAttribute;
 
 namespace CompiledValidators.Tests
 {
-    [TestFixture]
+    [TestFixture, Ignore]
     public class Performance
     {
         private const int TestDataCount = (int)1E6;

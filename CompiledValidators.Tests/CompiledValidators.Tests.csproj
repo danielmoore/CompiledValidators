@@ -43,7 +43,9 @@
   <ItemGroup>
     <Compile Include="DataAnnotations\ErrorMessageTests.cs" />
     <Compile Include="ErrorMessageTests.cs" />
+    <Compile Include="Infrastructure.cs" />
     <Compile Include="Performance.cs" />
+    <Compile Include="RecursionTests.cs" />
     <Compile Include="SimpleValidationTests.cs" />
     <Compile Include="DataAnnotations\DataAnnotationsValidatorProviderTests.cs" />
     <Compile Include="DataAnnotations\DefaultValidationExpressionConverterTests.cs" />

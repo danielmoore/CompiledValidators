@@ -1,7 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Linq.Expressions;
+using CompiledValidators.Tests.Infrastructure;
 using NUnit.Framework;
 
 namespace CompiledValidators.Tests
@@ -133,6 +132,12 @@ namespace CompiledValidators.Tests
             Assert.IsTrue(_sut.IsValid(new ValidClassWithInvalidStaticMember()));
         }
 
+        [Test]
+        public void ValidatesMultipleNullDepths()
+        {
+            Assert.IsFalse(_sut.Validate(new DeepNullClass(), false).Any());
+        }
+
         public class EmptyClass
         {
         }
@@ -210,6 +215,24 @@ namespace CompiledValidators.Tests
             public PartialValidClass Value4 = new PartialValidClass();
         }
 
+        public class DeepNullClass
+        {
+            public Child1 Value1;
+
+            public Child1 Value2;
+
+            public class Child1
+            {
+                public Child2 Value1;
+
+                public class Child2
+                {
+                    [Valid]
+                    public int Value1;
+                }
+            }
+        }
+
         [Invalid]
         public class InvalidEmptyType
         {
@@ -220,25 +243,5 @@ namespace CompiledValidators.Tests
             [Invalid]
             public int Value1 { get; set; }
         }
-
-        #region Test Infrastructure
-
-        private class ValidationExpressionConverter : IValidationExpressionConverter
-        {
-            public Expression Convert(object validator, System.Linq.Expressions.Expression member)
-            {
-                return validator is ValidAttribute ? Expression.Constant(true) : Expression.Constant(false);
-            }
-
-            public bool CanConvert(object validator, Type memberType)
-            {
-                return validator is ValidAttribute || validator is InvalidAttribute;
-            }
-        }
-
-        private class ValidAttribute : Attribute { }
-        private class InvalidAttribute : Attribute { }
-
-        #endregion
     }
 }

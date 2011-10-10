@@ -34,7 +34,9 @@ namespace CompiledValidators.Core
             var root = Expression.Parameter(typeof(T));
             var returnLabel = Expression.Label(typeof(ValidationError?));
 
-            var context = new ValidationContext((member, id) => Expression.Return(returnLabel, Expression.Convert(CreateValidationError(id, member), typeof(ValidationError?))));
+            var args = new[] { root };
+
+            var context = new ValidationContext(args, (member, id) => Expression.Return(returnLabel, Expression.Convert(CreateValidationError(id, member), typeof(ValidationError?))));
 
             context.Queue.Enqueue(() => GetValidationExpressions(root, context.MemberGraph.RootId, context));
 
@@ -43,7 +45,7 @@ namespace CompiledValidators.Core
             var returnSite = Expression.Label(returnLabel, Expression.Constant(null, typeof(ValidationError?)));
             var body = validators.Any() ? (Expression)Expression.Block(Expression.Block(validators), returnSite) : Expression.Constant(null, typeof(ValidationError?));
 
-            return CreateValidationContext(Expression.Lambda<Func<T, ValidationError?>>(body, root), context.MemberGraph);
+            return CreateValidationContext(Expression.Lambda<Func<T, ValidationError?>>(body, args), context.MemberGraph);
         }
 
         public ValidationImplementationContext<Action<T, ICollection<ValidationError>>> BuildFull<T>()
@@ -51,7 +53,9 @@ namespace CompiledValidators.Core
             var root = Expression.Parameter(typeof(T));
             var validationErrors = Expression.Parameter(typeof(ICollection<ValidationError>));
 
-            var context = new ValidationContext((member, id) => Expression.Call(validationErrors, Collection_Add, CreateValidationError(id, member)));
+            var args = new[] { root, validationErrors };
+
+            var context = new ValidationContext(args, (member, id) => Expression.Call(validationErrors, Collection_Add, CreateValidationError(id, member)));
 
             context.Queue.Enqueue(() => GetValidationExpressions(root, context.MemberGraph.RootId, context));
 
@@ -59,7 +63,7 @@ namespace CompiledValidators.Core
 
             var body = validators.Any() ? (Expression)Expression.Block(validators) : Expression.Empty();
 
-            return CreateValidationContext(Expression.Lambda<Action<T, ICollection<ValidationError>>>(body, root, validationErrors), context.MemberGraph);
+            return CreateValidationContext(Expression.Lambda<Action<T, ICollection<ValidationError>>>(body, args), context.MemberGraph);
         }
 
         private static Expression CreateValidationError(int id, Expression member)
@@ -96,10 +100,7 @@ namespace CompiledValidators.Core
                     yield return Validate(root, member, id, converter, context);
 
                 if (!memberData.RecursionPolicy.HasFlag(PolicyOptions.NoFollow))
-                    if (IsNullable(member.Type))
-                        context.Queue.Enqueue(() => NullCheck(member, GetValidationExpressions(member, id, context)));
-                    else
-                        context.Queue.Enqueue(() => GetValidationExpressions(member, id, context));
+                    context.Queue.Enqueue(() => NullCheck(member, GetValidationExpressions(member, id, context)));
 
                 if (!memberData.RecursionPolicy.HasFlag(PolicyOptions.NoIterate) && memberData.EnumerableTypeParameter != null)
                 {
@@ -116,10 +117,34 @@ namespace CompiledValidators.Core
             return Expression.IfThen(Expression.Not(converter.Convert(member)), context.GetInvalidValueHandlerExpression(root, validatorId));
         }
 
+        private static IEnumerable<Expression> GetSubMemberAccessors(Expression member)
+        {
+            var stack = new Stack<Expression>(10); // Surely object graphs won't be much deeper than 10 levels...
+            MemberExpression accessor;
+            while ((accessor = member as MemberExpression) != null)
+            {
+                stack.Push(accessor);
+                member = accessor.Expression;
+            }
+
+            return stack;
+        }
+
         private static IEnumerable<Expression> NullCheck(Expression value, IEnumerable<Expression> body)
         {
             if (body.Any())
-                yield return Expression.IfThen(Expression.NotEqual(value, Expression.Constant(null, value.Type)), Expression.Block(body));
+            {
+                var nullChecks =
+                    GetSubMemberAccessors(value)
+                    .Where(a => IsNullable(a.Type))
+                    .Select(m => Expression.NotEqual(m, Expression.Constant(null, m.Type)));
+
+                if (nullChecks.Any())
+                    yield return Expression.IfThen(nullChecks.Aggregate(Expression.AndAlso), Expression.Block(body));
+                else
+                    foreach (var stmt in body)
+                        yield return stmt;
+            }
         }
 
         private IEnumerable<Expression> ForEach(Expression member, Type itemType, Func<Expression, IEnumerable<Expression>> bodySelector)
@@ -188,17 +213,23 @@ namespace CompiledValidators.Core
         {
             private readonly Func<Expression, int, Expression> _onIsInvalid;
 
-            public ValidationContext(Func<Expression, int, Expression> onIsInvalid)
+            public ValidationContext(IEnumerable<ParameterExpression> parameters, Func<Expression, int, Expression> onIsInvalid, Type recursionEntryPoint = null)
             {
+                Parameters = parameters;
                 _onIsInvalid = onIsInvalid;
+                RecursionEntryPoint = recursionEntryPoint;
 
                 Queue = new ValidationQueue();
                 MemberGraph = new MemberGraph();
             }
 
+            public IEnumerable<ParameterExpression> Parameters { get; private set; }
+
             public ValidationQueue Queue { get; private set; }
 
             public MemberGraph MemberGraph { get; private set; }
+
+            public Type RecursionEntryPoint { get; private set; }
 
             public Expression GetInvalidValueHandlerExpression(Expression member, int validatorId)
             {
@@ -224,6 +255,9 @@ namespace CompiledValidators.Core
 
             private static Type GetEnumerableTypeParameter(Type type)
             {
+                if (type.IsInterface && type.IsGenericType && type.GetGenericTypeDefinition().Equals(typeof(IEnumerable<>)))
+                    return type.GetGenericArguments()[0];
+
                 return type
                     .GetInterfaces()
                     .Where(i => i.IsGenericType && i.GetGenericTypeDefinition().Equals(typeof(IEnumerable<>)))

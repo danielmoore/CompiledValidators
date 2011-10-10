@@ -99,7 +99,9 @@ namespace CompiledValidators
 
             var results = new List<Core.ValidationError>();
             var collectAllErrosValidator = validators.CollectAllErrosValidator.Value;
-            collectAllErrosValidator.Validate(obj, results);
+            var del = collectAllErrosValidator.Validate;
+            
+            del.Invoke(obj, results);
 
             return results.SelectMany(r =>
                 collectAllErrosValidator
